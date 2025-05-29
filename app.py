@@ -6,6 +6,7 @@
 #    Notes:
 #    - Fixed background from 'images/back.jpg'
 #    - Changed over to gemini ai for dynamic story generation
+#    - Changed from pyttsx3 to gTTS for cloud compatible mp3 from text
 #===============================================
 
 #app.py
@@ -13,7 +14,7 @@ import os
 import logging
 from flask import Flask, render_template, send_from_directory, request, abort, redirect, url_for
 from dotenv import load_dotenv
-import pyttsx3
+from gtts import gTTS
 import google.generativeai as genai
 
 # Load environment variables (e.g., GEMINI_API_KEY)
@@ -71,17 +72,25 @@ def read(filename):
 def audio(filename):
     """
     Converts an eBook to audio using pyttsx3 and streams it in-browser.
+    Changed from pyttsx3 to gtts, added additional error handling
     """
     audio_filename = filename.replace(".txt", ".mp3")
     audio_path = os.path.join(AUDIO_DIR, audio_filename)
+    ebook_path = os.path.join(EBOOK_DIR, filename)
 
     if not os.path.exists(audio_path):
         try:
-            with open(os.path.join(EBOOK_DIR, filename), "r", encoding="utf-8") as file:
+            with open(ebook_path, "r", encoding="utf-8") as file:
                 text = file.read()
-            engine = pyttsx3.init()
-            engine.save_to_file(text, audio_path)
-            engine.runAndWait()
+
+            if not text.strip():
+                return "This eBook is empty and cannot be converted to audio.", 400
+
+            tts = gTTS(text)
+            tts.save(audio_path)
+
+            logging.info(f"Audio generated: {audio_filename}")
+
         except Exception as e:
             logging.error(f"Audio generation failed for {filename}: {e}")
             return f"Error during audio generation: {str(e)}", 500
